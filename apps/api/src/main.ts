@@ -1,6 +1,8 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { watch } from 'fs';
+import { resolve } from 'path';
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,26 +14,33 @@ const io = new Server(httpServer, {
 });
 
 const events = [];
-const createEvent = (data: any) => {
+const files: Record<string, string> = {};
+
+const createEvent = (data: string) => {
   console.log(data);
   events.push(data);
 
   io.emit('event:read', events);
 };
 
-const readEventsEvent = () => {
+const readEvents = () => {
   io.emit('event:read', events);
 };
 
+const rootFilePath = resolve(process.cwd(), 'temp');
+
 io.on('connection', (socket) => {
   socket.on('event:create', createEvent);
-  socket.on('event:read', readEventsEvent);
+  socket.on('event:read', readEvents);
+  watch(rootFilePath, (event, filename) => {
+    console.log({ event, filename });
+    files[filename] = filename;
+    io.emit('file:read', Object.values(files));
+  });
   // socket.on("todo:update", updateTodo);
   // socket.on("todo:delete", deleteTodo);
   // socket.on("todo:list", listTodo);
-  // setInterval(() => {
-  //   socket.emit('message', 'Hello World');
-  // });
 });
 
+console.log('Listening on http://localhost:5001');
 httpServer.listen(5001);
